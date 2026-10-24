@@ -34,7 +34,7 @@ jobs:
     - name: Assemble prod debug APK
       run: ./gradlew assembleProdDebug
     - name: Run companion collector unit tests
-      run: ./gradlew testProdDebugUnitTest --tests com.eveningoutpost.dexdrip.services.UiBasedCollectorTest
+      run: ./gradlew :app:testProdDebugUnitTest --tests com.eveningoutpost.dexdrip.services.UiBasedCollectorTest
     - uses: actions/upload-artifact@v4
       with:
         name: xdrip-prod-debug-${{ github.sha }}
