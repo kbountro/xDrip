@@ -119,6 +119,7 @@ public class UiBasedCollector extends NotificationListenerService {
         coOptedPackages.add("com.suswel.ai");
         coOptedPackages.add("com.glucotech.app.android");
         coOptedPackages.add("com.diabeloop.dblg2");
+        coOptedPackages.add("com.syai.tag");
 
         coOptedPackagesAll.add("com.dexcom.dexcomone");
         coOptedPackagesAll.add("com.dexcom.d1plus");
@@ -145,6 +146,7 @@ public class UiBasedCollector extends NotificationListenerService {
         coOptedPackagesAll.add("com.suswel.ai");
         coOptedPackagesAll.add("com.glucotech.app.android");
         coOptedPackagesAll.add("com.diabeloop.dblg2");
+        coOptedPackagesAll.add("com.syai.tag");
 
         companionAppIoBPackages.add("com.insulet.myblue.pdm");
         companionAppIoBPackages.add("com.medtronic.diabetes.minimedmobile.eu");
