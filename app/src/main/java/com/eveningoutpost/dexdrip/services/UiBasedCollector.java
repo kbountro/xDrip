@@ -64,9 +64,12 @@ public class UiBasedCollector extends NotificationListenerService {
 
     private static final HashSet<String> coOptedPackages = new HashSet<>();
     private static final HashSet<String> coOptedPackagesAll = new HashSet<>();
+    private static final HashSet<String> oneMinutePackages = new HashSet<>();
     private static final HashSet<String> companionAppIoBPackages = new HashSet<>();
     private static final HashSet<Pattern> companionAppIoBRegexes = new HashSet<>();
     private static boolean debug = false;
+    // 4/5 of a 1 minute sample period, as used for 1 minute Inter-app broadcast data
+    private static final long ONE_MINUTE_DEDUPE_MS = Constants.SECOND_IN_MS * 48;
 
     @VisibleForTesting
     String lastPackage;
@@ -147,6 +150,9 @@ public class UiBasedCollector extends NotificationListenerService {
         coOptedPackagesAll.add("com.glucotech.app.android");
         coOptedPackagesAll.add("com.diabeloop.dblg2");
         coOptedPackagesAll.add("com.syai.tag");
+
+        // sources updating every minute: store every reading, even if unchanged
+        oneMinutePackages.add("com.syai.tag");
 
         companionAppIoBPackages.add("com.insulet.myblue.pdm");
         companionAppIoBPackages.add("com.medtronic.diabetes.minimedmobile.eu");
@@ -408,7 +414,8 @@ public class UiBasedCollector extends NotificationListenerService {
             val recentbt = msSince(lastReadingTimestamp) < grace;
             val dedupe = (!recentbt && isDifferentToLast(mgdl)) ? Constants.SECOND_IN_MS * 10
                     : DexCollectionType.getCurrentDeduplicationPeriod();
-            val period = recentbt ? grace : dedupe;
+            val oneMinute = oneMinutePackages.contains(lastPackage);
+            val period = oneMinute ? ONE_MINUTE_DEDUPE_MS : recentbt ? grace : dedupe;
             val existing = BgReading.getForPreciseTimestamp(timestamp, period, false);
             if (existing == null) {
                 if (isJammed(mgdl)) {
@@ -416,7 +423,8 @@ public class UiBasedCollector extends NotificationListenerService {
                 } else {
                     UserError.Log.d(TAG, "Inserting new value");
                     PersistentStore.setLong(UI_BASED_STORE_LAST_VALUE, mgdl);
-                    val bgr = BgReading.bgReadingInsertFromG5(mgdl, timestamp);
+                    val bgr = oneMinute ? BgReading.bgReadingInsertFromG5(mgdl, timestamp, null, ONE_MINUTE_DEDUPE_MS)
+                            : BgReading.bgReadingInsertFromG5(mgdl, timestamp);
                     if (bgr != null) {
                         bgr.find_slope();
                         bgr.noRawWillBeAvailable();
@@ -462,6 +470,7 @@ public class UiBasedCollector extends NotificationListenerService {
 
     private int jamThreshold() {
         if (lastPackage != null) {
+            if (oneMinutePackages.contains(lastPackage)) return 30; // ~30 minutes, as for 5 minute sources
             if (lastPackage.startsWith("com.medtronic")) return 9;
         }
         return 6;

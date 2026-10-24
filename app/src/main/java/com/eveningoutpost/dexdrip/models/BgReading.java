@@ -1156,9 +1156,14 @@ public class BgReading extends Model implements ShareUploadableBg {
         return bgReadingInsertFromG5(calculated_value, timestamp, null);
     }
 
+    public static BgReading bgReadingInsertFromG5(double calculated_value, final long timestamp, String sourceInfoAppend) {
+        return bgReadingInsertFromG5(calculated_value, timestamp, sourceInfoAppend, Constants.MINUTE_IN_MS);
+    }
+
                        // TODO can these methods be unified to reduce duplication
                                                                // TODO remember to sync this with wear code base
-    public static synchronized BgReading bgReadingInsertFromG5(double calculated_value, final long timestamp, String sourceInfoAppend) {
+    // precision: an existing reading closer than this to timestamp is returned instead of inserting
+    public static synchronized BgReading bgReadingInsertFromG5(double calculated_value, final long timestamp, String sourceInfoAppend, final long precision) {
 
         final Sensor sensor = Sensor.currentSensor();
         if (sensor == null) {
@@ -1166,7 +1171,7 @@ public class BgReading extends Model implements ShareUploadableBg {
             return null;
         }
         // TODO slope!!
-        final BgReading existing = getForPreciseTimestamp(timestamp, Constants.MINUTE_IN_MS);
+        final BgReading existing = getForPreciseTimestamp(timestamp, precision);
         if (existing == null) {
             final BgReading bgr = new BgReading();
             bgr.sensor = sensor;

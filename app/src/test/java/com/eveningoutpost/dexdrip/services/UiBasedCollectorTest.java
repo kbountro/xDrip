@@ -262,4 +262,64 @@ public class UiBasedCollectorTest extends RobolectricTestWithConfig {
                 .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 10 * 10, 100)).isFalse();
     }
 
+    // 1 minute source: identical readings 1 minute apart are all stored
+    @Test
+    public void deDupeTest_oneMinute_sameValue1minApart_stored() {
+        BgReading.deleteALL();
+        val ui = new UiBasedCollector();
+        ui.lastPackage = "com.syai.tag";
+        val start = JoH.tsl();
+        for (int i = 0; i < 10; i++) {
+            assertWithMessage("reading " + i + " accepted")
+                    .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * i, 100)).isTrue();
+        }
+        assertWithMessage("all readings stored").that(BgReading.latest(100).size()).isEqualTo(10);
+    }
+
+    // 1 minute source: readings arriving slightly under a minute apart are not swallowed
+    @Test
+    public void deDupeTest_oneMinute_jitter_stored() {
+        BgReading.deleteALL();
+        val ui = new UiBasedCollector();
+        ui.lastPackage = "com.syai.tag";
+        long ts = JoH.tsl();
+        for (int i = 0; i < 10; i++) {
+            ts += Constants.SECOND_IN_MS * (i % 2 == 0 ? 55 : 65);
+            assertWithMessage("reading " + i + " accepted")
+                    .that(ui.handleNewValue(ts, 100 + (i % 2))).isTrue();
+        }
+        assertWithMessage("all readings stored").that(BgReading.latest(100).size()).isEqualTo(10);
+    }
+
+    // 1 minute source: a repost within the same minute is rejected, whether or not the value changed
+    @Test
+    public void deDupeTest_oneMinute_repost_rejected() {
+        BgReading.deleteALL();
+        val ui = new UiBasedCollector();
+        ui.lastPackage = "com.syai.tag";
+        val start = JoH.tsl();
+        assertWithMessage("first reading accepted")
+                .that(ui.handleNewValue(start, 100)).isTrue();
+        assertWithMessage("same value 20 s later rejected")
+                .that(ui.handleNewValue(start + Constants.SECOND_IN_MS * 20, 100)).isFalse();
+        assertWithMessage("different value 20 s later rejected")
+                .that(ui.handleNewValue(start + Constants.SECOND_IN_MS * 20, 101)).isFalse();
+        assertWithMessage("one reading stored").that(BgReading.latest(100).size()).isEqualTo(1);
+    }
+
+    // 1 minute source: jam detection still triggers after ~30 minutes of identical values
+    @Test
+    public void deDupeTest_oneMinute_jamDetection() {
+        BgReading.deleteALL();
+        val ui = new UiBasedCollector();
+        ui.lastPackage = "com.syai.tag";
+        val start = JoH.tsl();
+        for (int i = 0; i <= 30; i++) {
+            assertWithMessage("reading " + i + " accepted")
+                    .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * i, 100)).isTrue();
+        }
+        assertWithMessage("32nd identical value rejected by jam detection")
+                .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 31, 100)).isFalse();
+    }
+
 }
