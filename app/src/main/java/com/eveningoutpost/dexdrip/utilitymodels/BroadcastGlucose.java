@@ -20,6 +20,7 @@ import com.eveningoutpost.dexdrip.models.JoH;
 import com.eveningoutpost.dexdrip.models.Noise;
 import com.eveningoutpost.dexdrip.models.Sensor;
 import com.eveningoutpost.dexdrip.models.UserError;
+import com.eveningoutpost.dexdrip.services.UiBasedCollector;
 import com.eveningoutpost.dexdrip.utils.DexCollectionType;
 
 import lombok.val;
@@ -44,7 +45,9 @@ public class BroadcastGlucose {
                     return;
                 }
 
-                if (Math.abs(bgReading.timestamp - lastTimestamp) < MINUTE_IN_MS) {
+                val minInterval = DexCollectionType.getDexCollectionType() == DexCollectionType.UiBased
+                        ? UiBasedCollector.getMinBroadcastInterval() : MINUTE_IN_MS;
+                if (Math.abs(bgReading.timestamp - lastTimestamp) < minInterval) {
                     val msg = String.format("Refusing to broadcast a reading with close timestamp to last broadcast:  %s (%d) vs %s (%d) ", dateTimeText(lastTimestamp), lastTimestamp, dateTimeText(bgReading.timestamp), bgReading.timestamp);
                     if (bgReading.timestamp == lastTimestamp) {
                         UserError.Log.d(TAG, msg);

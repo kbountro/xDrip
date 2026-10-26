@@ -70,6 +70,9 @@ public class UiBasedCollector extends NotificationListenerService {
     private static boolean debug = false;
     // 4/5 of a 1 minute sample period, as used for 1 minute Inter-app broadcast data
     private static final long ONE_MINUTE_DEDUPE_MS = Constants.SECOND_IN_MS * 48;
+    // 1 minute notifications can arrive a few seconds early, so allow broadcasts slightly under a minute apart
+    private static final long ONE_MINUTE_BROADCAST_MS = Constants.SECOND_IN_MS * 54;
+    private static volatile boolean lastInsertOneMinute = false;
 
     @VisibleForTesting
     String lastPackage;
@@ -426,6 +429,7 @@ public class UiBasedCollector extends NotificationListenerService {
                     val bgr = oneMinute ? BgReading.bgReadingInsertFromG5(mgdl, timestamp, null, ONE_MINUTE_DEDUPE_MS)
                             : BgReading.bgReadingInsertFromG5(mgdl, timestamp);
                     if (bgr != null) {
+                        lastInsertOneMinute = oneMinute;
                         bgr.find_slope();
                         bgr.noRawWillBeAvailable();
                         bgr.injectDisplayGlucose(BestGlucose.getDisplayGlucose());
@@ -439,6 +443,10 @@ public class UiBasedCollector extends NotificationListenerService {
             UserError.Log.wtf(TAG, "Glucose value outside acceptable range: " + mgdl);
         }
         return false;
+    }
+
+    public static long getMinBroadcastInterval() {
+        return lastInsertOneMinute ? ONE_MINUTE_BROADCAST_MS : Constants.MINUTE_IN_MS;
     }
 
     static boolean isValidMmol(final String text) {
