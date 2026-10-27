@@ -11,6 +11,7 @@ import com.eveningoutpost.dexdrip.models.BgReading;
 import com.eveningoutpost.dexdrip.models.JoH;
 import com.eveningoutpost.dexdrip.models.SensorSanity;
 import com.eveningoutpost.dexdrip.models.UserError;
+import com.eveningoutpost.dexdrip.services.UiBasedCollector;
 import com.eveningoutpost.dexdrip.utilitymodels.BgGraphBuilder;
 import com.eveningoutpost.dexdrip.utilitymodels.ColorCache;
 import com.eveningoutpost.dexdrip.utilitymodels.Pref;
@@ -315,7 +316,7 @@ public class BestGlucose {
                 || (timestamp1 - timestamp2 > (20 * 60 * 1000)))
             return "???";
 
-        double value = calculateSlope(value1, timestamp1, value2, timestamp2) * 5 * 60 * 1000;
+        double value = calculateSlope(value1, timestamp1, value2, timestamp2) * UiBasedCollector.getDisplayDeltaPeriod();
 
         return BgGraphBuilder.unitizedDeltaStringRaw(showUnit, highGranularity, value, doMgdl);
     }

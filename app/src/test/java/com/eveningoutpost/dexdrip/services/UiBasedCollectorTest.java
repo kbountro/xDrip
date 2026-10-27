@@ -7,6 +7,7 @@ import com.eveningoutpost.dexdrip.models.BgReading;
 import com.eveningoutpost.dexdrip.models.JoH;
 import com.eveningoutpost.dexdrip.utilitymodels.Constants;
 import com.eveningoutpost.dexdrip.utilitymodels.PersistentStore;
+import com.eveningoutpost.dexdrip.utils.DexCollectionType;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -337,6 +338,24 @@ public class UiBasedCollectorTest extends RobolectricTestWithConfig {
                 .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 5, 110)).isTrue();
         assertWithMessage("other interval")
                 .that(UiBasedCollector.getMinBroadcastInterval()).isEqualTo(Constants.MINUTE_IN_MS);
+    }
+
+    // 1 minute source in companion mode: displayed delta covers 1 minute, otherwise 5 minutes
+    @Test
+    public void displayDeltaPeriod_oneMinuteSource() {
+        BgReading.deleteALL();
+        DexCollectionType.setDexCollectionType(DexCollectionType.UiBased);
+        val ui = new UiBasedCollector();
+        val start = JoH.tsl();
+        ui.lastPackage = "com.syai.tag";
+        assertWithMessage("syai reading accepted").that(ui.handleNewValue(start, 100)).isTrue();
+        assertWithMessage("syai delta period")
+                .that(UiBasedCollector.getDisplayDeltaPeriod()).isEqualTo(Constants.MINUTE_IN_MS);
+        ui.lastPackage = "com.dexcom.g7";
+        assertWithMessage("other reading accepted")
+                .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 5, 110)).isTrue();
+        assertWithMessage("other delta period")
+                .that(UiBasedCollector.getDisplayDeltaPeriod()).isEqualTo(Constants.MINUTE_IN_MS * 5);
     }
 
 }

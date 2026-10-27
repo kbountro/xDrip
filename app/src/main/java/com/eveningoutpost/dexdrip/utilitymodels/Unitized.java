@@ -3,6 +3,7 @@ package com.eveningoutpost.dexdrip.utilitymodels;
 // jamorham
 
 import com.eveningoutpost.dexdrip.models.BgReading;
+import com.eveningoutpost.dexdrip.services.UiBasedCollector;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -108,7 +109,7 @@ public class Unitized {
             return "???";
         }
 
-        double value = BgReading.currentSlope(is_follower) * 5 * 60 * 1000;
+        double value = BgReading.currentSlope(is_follower) * UiBasedCollector.getDisplayDeltaPeriod();
 
         return unitizedDeltaStringRaw(showUnit, highGranularity, value, doMgdl);
     }

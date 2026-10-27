@@ -35,6 +35,7 @@ import com.eveningoutpost.dexdrip.models.Treatments;
 import com.eveningoutpost.dexdrip.models.UserError;
 import com.eveningoutpost.dexdrip.R;
 import com.eveningoutpost.dexdrip.services.ActivityRecognizedService;
+import com.eveningoutpost.dexdrip.services.UiBasedCollector;
 import com.eveningoutpost.dexdrip.calibrations.CalibrationAbstract;
 import com.eveningoutpost.dexdrip.calibrations.PluggableCalibration;
 import com.eveningoutpost.dexdrip.insulin.opennov.Options;
@@ -2368,7 +2369,7 @@ public class BgGraphBuilder {
             return "???";
         }
 
-        double value = BgReading.currentSlope(is_follower) * 5 * 60 * 1000;
+        double value = BgReading.currentSlope(is_follower) * UiBasedCollector.getDisplayDeltaPeriod();
 
         return unitizedDeltaStringRaw(showUnit, highGranularity, value, doMgdl);
     }
