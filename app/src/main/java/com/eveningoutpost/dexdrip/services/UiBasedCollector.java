@@ -449,9 +449,8 @@ public class UiBasedCollector extends NotificationListenerService {
         return lastInsertOneMinute ? ONE_MINUTE_BROADCAST_MS : Constants.MINUTE_IN_MS;
     }
 
-    // period the displayed delta covers: 1 minute while a 1 minute source feeds companion mode
-    public static long getDisplayDeltaPeriod() {
-        return lastInsertOneMinute && getDexCollectionType() == UiBased ? Constants.MINUTE_IN_MS : Constants.MINUTE_IN_MS * 5;
+    public static boolean isOneMinuteSourceActive() {
+        return lastInsertOneMinute && getDexCollectionType() == UiBased;
     }
 
     static boolean isValidMmol(final String text) {

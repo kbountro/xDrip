@@ -200,6 +200,17 @@ public class BestGlucose {
 
         }
 
+        // with 1 minute data, show a sliding delta against the reading about 5 minutes earlier
+        double delta_previous_estimate = previous_estimate;
+        long delta_previous_timestamp = previous_timestamp;
+        if (!dg.from_plugin && !is_follower && UiBasedCollector.isOneMinuteSourceActive()) {
+            final BgReading reference = readingFiveMinutesBefore(timestamp);
+            if (reference != null) {
+                delta_previous_estimate = reference.calculated_value;
+                delta_previous_timestamp = reference.timestamp;
+            }
+        }
+
         int warning_level = 0;
         String slope_arrow = "";
         String slope_name = "";
@@ -239,10 +250,10 @@ public class BestGlucose {
         } else {
             // TODO ignores plugin
             //dg.unitized_delta = BgGraphBuilder.unitizedDeltaString(true, true, is_follower , doMgdl);
-            dg.unitized_delta_no_units = unitizedDeltaString(false, true, doMgdl, estimate, timestamp, previous_estimate, previous_timestamp);
-            estimated_delta = estimate - previous_estimate; // TODO time stretch adjustment?
+            dg.unitized_delta_no_units = unitizedDeltaString(false, true, doMgdl, estimate, timestamp, delta_previous_estimate, delta_previous_timestamp);
+            estimated_delta = estimate - delta_previous_estimate; // TODO time stretch adjustment?
             // TODO optimize adding units
-            dg.unitized_delta = unitizedDeltaString(true, true, doMgdl, estimate, timestamp, previous_estimate, previous_timestamp);
+            dg.unitized_delta = unitizedDeltaString(true, true, doMgdl, estimate, timestamp, delta_previous_estimate, delta_previous_timestamp);
             long time_delta = timestamp - previous_timestamp;
             if (time_delta < 0) Log.wtf(TAG, "Time delta is negative! : " + time_delta);
             //slope_arrow = lastBgReading.slopeArrow(); // internalize this for plugins
@@ -316,9 +327,24 @@ public class BestGlucose {
                 || (timestamp1 - timestamp2 > (20 * 60 * 1000)))
             return "???";
 
-        double value = calculateSlope(value1, timestamp1, value2, timestamp2) * UiBasedCollector.getDisplayDeltaPeriod();
+        double value = calculateSlope(value1, timestamp1, value2, timestamp2) * 5 * 60 * 1000;
 
         return BgGraphBuilder.unitizedDeltaStringRaw(showUnit, highGranularity, value, doMgdl);
+    }
+
+    // delta per 5 minutes for display: with 1 minute data, against the reading about 5 minutes earlier
+    public static double displayDeltaPerFiveMinutes(final BgReading last, final boolean is_follower) {
+        if (!is_follower && UiBasedCollector.isOneMinuteSourceActive()) {
+            final BgReading reference = readingFiveMinutesBefore(last.timestamp);
+            if (reference != null) {
+                return calculateSlope(last.calculated_value, last.timestamp, reference.calculated_value, reference.timestamp) * 5 * 60 * 1000;
+            }
+        }
+        return BgReading.currentSlope(is_follower) * 5 * 60 * 1000;
+    }
+
+    private static BgReading readingFiveMinutesBefore(final long timestamp) {
+        return BgReading.getForPreciseTimestamp(timestamp - 5 * 60 * 1000, 150 * 1000);
     }
 
     private static double calculateSlope(double value1, long timestamp1, double value2, long timestamp2) {

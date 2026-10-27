@@ -2,8 +2,8 @@ package com.eveningoutpost.dexdrip.utilitymodels;
 
 // jamorham
 
+import com.eveningoutpost.dexdrip.BestGlucose;
 import com.eveningoutpost.dexdrip.models.BgReading;
-import com.eveningoutpost.dexdrip.services.UiBasedCollector;
 
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -109,7 +109,7 @@ public class Unitized {
             return "???";
         }
 
-        double value = BgReading.currentSlope(is_follower) * UiBasedCollector.getDisplayDeltaPeriod();
+        double value = BestGlucose.displayDeltaPerFiveMinutes(last2.get(0), is_follower);
 
         return unitizedDeltaStringRaw(showUnit, highGranularity, value, doMgdl);
     }

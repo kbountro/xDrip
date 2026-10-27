@@ -2,6 +2,7 @@ package com.eveningoutpost.dexdrip.services;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.eveningoutpost.dexdrip.BestGlucose;
 import com.eveningoutpost.dexdrip.RobolectricTestWithConfig;
 import com.eveningoutpost.dexdrip.models.BgReading;
 import com.eveningoutpost.dexdrip.models.JoH;
@@ -340,22 +341,27 @@ public class UiBasedCollectorTest extends RobolectricTestWithConfig {
                 .that(UiBasedCollector.getMinBroadcastInterval()).isEqualTo(Constants.MINUTE_IN_MS);
     }
 
-    // 1 minute source in companion mode: displayed delta covers 1 minute, otherwise 5 minutes
+    // 1 minute source in companion mode: displayed delta is the change over the last ~5 minutes
     @Test
-    public void displayDeltaPeriod_oneMinuteSource() {
+    public void displayDelta_oneMinuteSource_slidingFiveMinutes() {
         BgReading.deleteALL();
         DexCollectionType.setDexCollectionType(DexCollectionType.UiBased);
         val ui = new UiBasedCollector();
-        val start = JoH.tsl();
         ui.lastPackage = "com.syai.tag";
-        assertWithMessage("syai reading accepted").that(ui.handleNewValue(start, 100)).isTrue();
-        assertWithMessage("syai delta period")
-                .that(UiBasedCollector.getDisplayDeltaPeriod()).isEqualTo(Constants.MINUTE_IN_MS);
-        ui.lastPackage = "com.dexcom.g7";
-        assertWithMessage("other reading accepted")
-                .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 5, 110)).isTrue();
-        assertWithMessage("other delta period")
-                .that(UiBasedCollector.getDisplayDeltaPeriod()).isEqualTo(Constants.MINUTE_IN_MS * 5);
+        val start = JoH.tsl();
+        val values = new int[]{100, 100, 100, 100, 100, 110};
+        for (int i = 0; i < values.length; i++) {
+            assertWithMessage("reading " + i + " accepted")
+                    .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * i, values[i])).isTrue();
+        }
+        val last = BgReading.last();
+        assertWithMessage("sliding 5 minute delta")
+                .that(BestGlucose.displayDeltaPerFiveMinutes(last, false)).isWithin(0.01).of(10);
+
+        // other data sources keep the last two readings scaled to 5 minutes
+        DexCollectionType.setDexCollectionType(DexCollectionType.DexcomG5);
+        assertWithMessage("last two readings scaled to 5 minutes")
+                .that(BestGlucose.displayDeltaPerFiveMinutes(last, false)).isWithin(0.01).of(50);
     }
 
 }

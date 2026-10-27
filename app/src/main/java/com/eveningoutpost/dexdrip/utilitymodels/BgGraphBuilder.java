@@ -18,6 +18,7 @@ import com.eveningoutpost.dexdrip.AddCalibration;
 import com.eveningoutpost.dexdrip.GcmActivity;
 import com.eveningoutpost.dexdrip.Home;
 import com.eveningoutpost.dexdrip.models.APStatus;
+import com.eveningoutpost.dexdrip.BestGlucose;
 import com.eveningoutpost.dexdrip.models.BgReading;
 import com.eveningoutpost.dexdrip.models.BloodTest;
 import com.eveningoutpost.dexdrip.models.Calibration;
@@ -35,7 +36,6 @@ import com.eveningoutpost.dexdrip.models.Treatments;
 import com.eveningoutpost.dexdrip.models.UserError;
 import com.eveningoutpost.dexdrip.R;
 import com.eveningoutpost.dexdrip.services.ActivityRecognizedService;
-import com.eveningoutpost.dexdrip.services.UiBasedCollector;
 import com.eveningoutpost.dexdrip.calibrations.CalibrationAbstract;
 import com.eveningoutpost.dexdrip.calibrations.PluggableCalibration;
 import com.eveningoutpost.dexdrip.insulin.opennov.Options;
@@ -2369,7 +2369,7 @@ public class BgGraphBuilder {
             return "???";
         }
 
-        double value = BgReading.currentSlope(is_follower) * UiBasedCollector.getDisplayDeltaPeriod();
+        double value = BestGlucose.displayDeltaPerFiveMinutes(last2.get(0), is_follower);
 
         return unitizedDeltaStringRaw(showUnit, highGranularity, value, doMgdl);
     }
