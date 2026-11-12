@@ -33,8 +33,8 @@ jobs:
         fi
     - name: Assemble prod debug APK
       run: ./gradlew assembleProdDebug
-    - name: Run companion collector unit tests
-      run: ./gradlew :app:testProdDebugUnitTest --tests com.eveningoutpost.dexdrip.services.UiBasedCollectorTest
+    - name: Run companion collector and Inter-app receiver unit tests
+      run: ./gradlew :app:testProdDebugUnitTest --tests com.eveningoutpost.dexdrip.services.UiBasedCollectorTest --tests "com.eveningoutpost.dexdrip.NSEmulatorReceiver*"
     - uses: actions/upload-artifact@v4
       with:
         name: xdrip-prod-debug-${{ github.sha }}

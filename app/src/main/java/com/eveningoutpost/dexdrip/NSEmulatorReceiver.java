@@ -67,9 +67,13 @@ public class NSEmulatorReceiver extends BroadcastReceiver {
                         switch (action) {
                             case Intents.XDRIP_PLUS_NS_EMULATOR:
 
+                                // companion mode takes single readings only where it has none, e.g. the Syai app's backfill
+                                final boolean companionBackfill = !Home.get_follower()
+                                        && DexCollectionType.getDexCollectionType() == DexCollectionType.UiBased;
+
                                 // in future this could have its own data source perhaps instead of follower
                                 if (!Home.get_follower() && DexCollectionType.getDexCollectionType() != DexCollectionType.NSEmulator &&
-                                        !Pref.getBooleanDefaultFalse("external_blukon_algorithm")) {
+                                        !Pref.getBooleanDefaultFalse("external_blukon_algorithm") && !companionBackfill) {
                                     Log.e(TAG, "Received NSEmulator data but we are not a follower or emulator receiver");
                                     return;
                                 }
@@ -88,6 +92,10 @@ public class NSEmulatorReceiver extends BroadcastReceiver {
 
                                 final String collection = bundle.getString("collection");
                                 if (collection == null) return;
+                                if (companionBackfill && !collection.equals("entries")) {
+                                    Log.d(TAG, "Companion mode: ignoring collection " + collection);
+                                    return;
+                                }
 
                                 switch (collection) {
 
@@ -98,7 +106,9 @@ public class NSEmulatorReceiver extends BroadcastReceiver {
                                             try {
                                                 final JSONArray json_array = new JSONArray(data);
                                                 // if this array is >1 in length then it is from OOP otherwise something like AAPS
-                                                if (json_array.length() > 1) {
+                                                if (companionBackfill && json_array.length() > 1) {
+                                                    Log.d(TAG, "Companion mode: ignoring multi-entry data");
+                                                } else if (json_array.length() > 1) {
                                                     final JSONObject json_object = json_array.getJSONObject(0);
                                                     int process_id = -1;
                                                     try {

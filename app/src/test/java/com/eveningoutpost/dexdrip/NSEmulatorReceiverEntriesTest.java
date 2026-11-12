@@ -5,6 +5,7 @@ import android.content.Intent;
 import com.eveningoutpost.dexdrip.models.BgReading;
 import com.eveningoutpost.dexdrip.models.JoH;
 import com.eveningoutpost.dexdrip.models.Sensor;
+import com.eveningoutpost.dexdrip.utilitymodels.Constants;
 import com.eveningoutpost.dexdrip.utilitymodels.Intents;
 import com.eveningoutpost.dexdrip.utilitymodels.Pref;
 import com.eveningoutpost.dexdrip.utils.DexCollectionType;
@@ -74,6 +75,43 @@ public class NSEmulatorReceiverEntriesTest extends RobolectricTestWithConfig {
         BgReading reading = waitFor(BgReading::lastNoSenssor);
         assertThat(reading).isNotNull();
         assertThat(reading.slopeName()).isEqualTo("Flat");
+    }
+
+    // ===== Companion mode backfill ===================================================================================
+
+    /** In companion mode, an sgv entry where there is no reading fills the gap. */
+    @Test
+    public void companionModeSgvEntryInGapIsSaved() {
+        // :: Setup
+        DexCollectionType.setDexCollectionType(DexCollectionType.UiBased);
+        NSEmulatorReceiver.bgReadingInsertFromData(ENTRY_TIME - 10 * Constants.MINUTE_IN_MS, 110, 0, false);
+
+        // :: Act
+        receiveEntry("{\"type\":\"sgv\",\"date\":" + ENTRY_TIME + ",\"sgv\":123}");
+
+        // :: Verify
+        BgReading reading = waitFor(() -> {
+            BgReading last = BgReading.lastNoSenssor();
+            return last != null && last.timestamp == ENTRY_TIME ? last : null;
+        });
+        assertThat(reading).isNotNull();
+        assertThat(reading.calculated_value).isEqualTo(123d);
+    }
+
+    /** In companion mode, an sgv entry next to an existing reading is ignored. */
+    @Test
+    public void companionModeSgvEntryNearReadingIsIgnored() {
+        // :: Setup
+        DexCollectionType.setDexCollectionType(DexCollectionType.UiBased);
+        NSEmulatorReceiver.bgReadingInsertFromData(ENTRY_TIME, 110, 0, false);
+
+        // :: Act
+        receiveEntry("{\"type\":\"sgv\",\"date\":" + (ENTRY_TIME + 30 * Constants.SECOND_IN_MS) + ",\"sgv\":123}");
+        JoH.threadSleep(2000); // the receiver thread has nothing to signal when it ignores an entry
+
+        // :: Verify
+        assertThat(BgReading.latest(10, true)).hasSize(1);
+        assertThat(BgReading.lastNoSenssor().calculated_value).isEqualTo(110d);
     }
 
     // ===== Helpers ===================================================================================================
