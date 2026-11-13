@@ -1017,6 +1017,17 @@ public class BgReading extends Model implements ShareUploadableBg {
         return readingNearTimeStamp(startTime, readingProximityMarginMs);
     }
 
+    // a reading with from <= timestamp < to
+    public static BgReading readingInRange(final long from, final long to) {
+        return new Select()
+                .from(BgReading.class)
+                .where("timestamp >= ?", from)
+                .where("timestamp < ?", to)
+                .where("calculated_value != 0")
+                .where("raw_data != 0")
+                .executeSingle();
+    }
+
     public static BgReading readingNearTimeStamp(long startTime, final long margin) {
         final DecimalFormat df = new DecimalFormat("#");
         df.setMaximumFractionDigits(1);
@@ -1404,6 +1415,11 @@ public class BgReading extends Model implements ShareUploadableBg {
     }
 
     public static BgReading bgReadingInsertFromJson(String json, boolean do_notification, boolean force_sensor) {
+        return bgReadingInsertFromJson(json, do_notification, force_sensor, readingProximityMarginMs);
+    }
+
+    // margin: an existing reading this close to the new one's timestamp makes it a duplicate
+    public static BgReading bgReadingInsertFromJson(String json, boolean do_notification, boolean force_sensor, final long margin) {
         if ((json == null) || (json.length() == 0)) {
             Log.e(TAG, "bgreadinginsertfromjson passed a null or zero length json");
             return null;
@@ -1411,7 +1427,7 @@ public class BgReading extends Model implements ShareUploadableBg {
         final BgReading bgr = fromJSON(json);
         if (bgr != null) {
             try {
-                if (readingNearTimeStamp(bgr.timestamp) == null) {
+                if (readingNearTimeStamp(bgr.timestamp, margin) == null) {
                     FixCalibration(bgr);
                     if (force_sensor) {
                         final Sensor forced_sensor = Sensor.currentSensor();

@@ -39,6 +39,10 @@ public class NSEmulatorReceiver extends BroadcastReceiver {
     private static final boolean debug = false;
     private static final boolean d = false;
     private static final Object lock = new Object();
+    // in companion mode, the stored reading of the same sensor minute as an entry arrives with its notification,
+    // so it is dated from just before the entry's timestamp to under a minute after it; neighbouring minutes fall outside
+    private static final long COMPANION_SAME_MINUTE_BEFORE_MS = 5 * 1000;
+    private static final long COMPANION_SAME_MINUTE_AFTER_MS = 55 * 1000;
 
     @Override
     public void onReceive(final Context context, final Intent intent) {
@@ -133,8 +137,16 @@ public class NSEmulatorReceiver extends BroadcastReceiver {
                                                             } catch (JSONException e) {
                                                                 //
                                                             }
-                                                            bgReadingInsertFromData(json_object.getLong("date"),
-                                                                    json_object.getDouble("sgv"), slope, true);
+                                                            final long date = json_object.getLong("date");
+                                                            final double sgv = json_object.getDouble("sgv");
+                                                            if (!companionBackfill) {
+                                                                bgReadingInsertFromData(date, sgv, slope, true);
+                                                            } else if (BgReading.readingInRange(date - COMPANION_SAME_MINUTE_BEFORE_MS,
+                                                                    date + COMPANION_SAME_MINUTE_AFTER_MS) != null) {
+                                                                Log.d(TAG, "Companion mode: already have a reading for " + JoH.dateTimeText(date));
+                                                            } else {
+                                                                bgReadingInsertFromData(date, sgv, slope, true, COMPANION_SAME_MINUTE_BEFORE_MS);
+                                                            }
 
                                                             break;
                                                         default:
@@ -423,6 +435,21 @@ public class NSEmulatorReceiver extends BroadcastReceiver {
 
 
     public static BgReading bgReadingInsertFromData(long timestamp, double sgv, double slope, boolean do_notification) {
+        final String json = fauxReadingJson(timestamp, sgv, slope);
+        if (json == null) return null;
+        Sensor.createDefaultIfMissing();
+        return bgReadingInsertFromJson(json, do_notification, true); // notify and force sensor
+    }
+
+    // margin: an existing reading this close to timestamp makes the new one a duplicate
+    public static BgReading bgReadingInsertFromData(long timestamp, double sgv, double slope, boolean do_notification, long margin) {
+        final String json = fauxReadingJson(timestamp, sgv, slope);
+        if (json == null) return null;
+        Sensor.createDefaultIfMissing();
+        return bgReadingInsertFromJson(json, do_notification, true, margin); // notify and force sensor
+    }
+
+    private static String fauxReadingJson(long timestamp, double sgv, double slope) {
         Log.d(TAG, "bgReadingInsertFromData called timestamp = " + timestamp + " bg = " + sgv + " time =" + JoH.dateTimeText(timestamp));
         final JSONObject faux_bgr = new JSONObject();
         try {
@@ -445,7 +472,6 @@ public class NSEmulatorReceiver extends BroadcastReceiver {
         }
 
         Log.d(TAG, "Received NSEmulator SGV: " + faux_bgr);
-        Sensor.createDefaultIfMissing();
-        return bgReadingInsertFromJson(faux_bgr.toString(), do_notification, true); // notify and force sensor
+        return faux_bgr.toString();
     }
 }

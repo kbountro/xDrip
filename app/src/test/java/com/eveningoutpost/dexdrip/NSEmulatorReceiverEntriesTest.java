@@ -98,20 +98,38 @@ public class NSEmulatorReceiverEntriesTest extends RobolectricTestWithConfig {
         assertThat(reading.calculated_value).isEqualTo(123d);
     }
 
-    /** In companion mode, an sgv entry next to an existing reading is ignored. */
+    /** In companion mode, an sgv entry whose minute already has a companion reading, dated a little later, is ignored. */
     @Test
-    public void companionModeSgvEntryNearReadingIsIgnored() {
+    public void companionModeSgvEntryWithSameMinuteReadingIsIgnored() {
         // :: Setup
         DexCollectionType.setDexCollectionType(DexCollectionType.UiBased);
-        NSEmulatorReceiver.bgReadingInsertFromData(ENTRY_TIME, 110, 0, false);
+        NSEmulatorReceiver.bgReadingInsertFromData(ENTRY_TIME + 20 * Constants.SECOND_IN_MS, 110, 0, false);
 
         // :: Act
-        receiveEntry("{\"type\":\"sgv\",\"date\":" + (ENTRY_TIME + 30 * Constants.SECOND_IN_MS) + ",\"sgv\":123}");
+        receiveEntry("{\"type\":\"sgv\",\"date\":" + ENTRY_TIME + ",\"sgv\":123}");
         JoH.threadSleep(2000); // the receiver thread has nothing to signal when it ignores an entry
 
         // :: Verify
         assertThat(BgReading.latest(10, true)).hasSize(1);
         assertThat(BgReading.lastNoSenssor().calculated_value).isEqualTo(110d);
+    }
+
+    /** In companion mode, an sgv entry for a single missing minute between companion readings fills it. */
+    @Test
+    public void companionModeSgvEntryForSingleMissingMinuteIsSaved() {
+        // :: Setup - companion readings of the minutes before and after, arriving 20 s after their sensor time
+        DexCollectionType.setDexCollectionType(DexCollectionType.UiBased);
+        NSEmulatorReceiver.bgReadingInsertFromData(ENTRY_TIME - 40 * Constants.SECOND_IN_MS, 110, 0, false, Constants.SECOND_IN_MS);
+        NSEmulatorReceiver.bgReadingInsertFromData(ENTRY_TIME + 80 * Constants.SECOND_IN_MS, 130, 0, false, Constants.SECOND_IN_MS);
+
+        // :: Act
+        receiveEntry("{\"type\":\"sgv\",\"date\":" + ENTRY_TIME + ",\"sgv\":123}");
+
+        // :: Verify
+        BgReading reading = waitFor(() -> BgReading.readingInRange(ENTRY_TIME, ENTRY_TIME + 1));
+        assertThat(reading).isNotNull();
+        assertThat(reading.calculated_value).isEqualTo(123d);
+        assertThat(BgReading.latest(10, true)).hasSize(3);
     }
 
     // ===== Helpers ===================================================================================================
