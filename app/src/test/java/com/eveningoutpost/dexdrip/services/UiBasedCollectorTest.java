@@ -23,6 +23,7 @@ public class UiBasedCollectorTest extends RobolectricTestWithConfig {
         super.setUp();
         PersistentStore.setLong("UI_BASED_STORE_LAST_VALUE", 0);
         PersistentStore.setLong("UI_BASED_STORE_LAST_REPEAT", 0);
+        PersistentStore.setLong("UI_BASED_STORE_LAST_TIME", 0);
     }
 
     @Test
@@ -362,6 +363,36 @@ public class UiBasedCollectorTest extends RobolectricTestWithConfig {
         DexCollectionType.setDexCollectionType(DexCollectionType.DexcomG5);
         assertWithMessage("last two readings scaled to 5 minutes")
                 .that(BestGlucose.displayDeltaPerFiveMinutes(last, false)).isWithin(0.01).of(50);
+    }
+
+    // 1 minute source: after a gap, the value from before the gap is ignored until the value changes
+    @Test
+    public void deDupeTest_oneMinute_unchangedAfterGap_ignored() {
+        BgReading.deleteALL();
+        val ui = new UiBasedCollector();
+        ui.lastPackage = "com.syai.tag";
+        val start = JoH.tsl();
+        assertWithMessage("reading before gap accepted").that(ui.handleNewValue(start, 130)).isTrue();
+        assertWithMessage("same value after 30 min gap ignored")
+                .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 30, 130)).isFalse();
+        assertWithMessage("same value a minute later still ignored")
+                .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 31, 130)).isFalse();
+        assertWithMessage("changed value accepted")
+                .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 32, 158)).isTrue();
+        assertWithMessage("same value a minute after that accepted")
+                .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 33, 158)).isTrue();
+    }
+
+    // 1 minute source: one missed minute is not a gap, so an unchanged value is accepted
+    @Test
+    public void deDupeTest_oneMinute_unchangedAfterOneMissedMinute_accepted() {
+        BgReading.deleteALL();
+        val ui = new UiBasedCollector();
+        ui.lastPackage = "com.syai.tag";
+        val start = JoH.tsl();
+        assertWithMessage("first reading accepted").that(ui.handleNewValue(start, 130)).isTrue();
+        assertWithMessage("same value 2 min later accepted")
+                .that(ui.handleNewValue(start + Constants.MINUTE_IN_MS * 2, 130)).isTrue();
     }
 
 }

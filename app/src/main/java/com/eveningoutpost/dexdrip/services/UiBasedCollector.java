@@ -58,6 +58,7 @@ public class UiBasedCollector extends NotificationListenerService {
     private static final String TAG = UiBasedCollector.class.getSimpleName();
     private static final String UI_BASED_STORE_LAST_VALUE = "UI_BASED_STORE_LAST_VALUE";
     private static final String UI_BASED_STORE_LAST_REPEAT = "UI_BASED_STORE_LAST_REPEAT";
+    private static final String UI_BASED_STORE_LAST_TIME = "UI_BASED_STORE_LAST_TIME";
     private static final String COMPANION_APP_IOB_ENABLED_PREFERENCE_KEY = "fetch_iob_from_companion_app";
     private static final String ENABLED_NOTIFICATION_LISTENERS = "enabled_notification_listeners";
     private static final String ACTION_NOTIFICATION_LISTENER_SETTINGS = "android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS";
@@ -73,6 +74,8 @@ public class UiBasedCollector extends NotificationListenerService {
     // 1 minute notifications can arrive a few seconds early, so allow broadcasts slightly under a minute apart
     private static final long ONE_MINUTE_BROADCAST_MS = Constants.SECOND_IN_MS * 54;
     private static volatile boolean lastInsertOneMinute = false;
+    // after a gap, a 1 minute source's notification can come back showing the value from before the gap
+    private static final long ONE_MINUTE_STALE_AFTER_GAP_MS = Constants.MINUTE_IN_MS * 3;
 
     @VisibleForTesting
     String lastPackage;
@@ -174,7 +177,7 @@ public class UiBasedCollector extends NotificationListenerService {
         val fromPackage = sbn.getPackageName();
         if (coOptedPackages.contains(fromPackage)) {
             if (getDexCollectionType() == UiBased) {
-                UserError.Log.d(TAG, "Notification from: " + fromPackage);
+                UserError.Log.d(TAG, "Notification from: " + fromPackage + " when: " + JoH.dateTimeText(sbn.getNotification().when));
                 if (sbn.isOngoing() || coOptedPackagesAll.contains(fromPackage)) {
                     lastPackage = fromPackage;
                     processNotification(sbn.getNotification());
@@ -418,6 +421,10 @@ public class UiBasedCollector extends NotificationListenerService {
             val dedupe = (!recentbt && isDifferentToLast(mgdl)) ? Constants.SECOND_IN_MS * 10
                     : DexCollectionType.getCurrentDeduplicationPeriod();
             val oneMinute = oneMinutePackages.contains(lastPackage);
+            if (oneMinute && isUnchangedAfterGap(timestamp, mgdl)) {
+                UserError.Log.d(TAG, "Ignoring unchanged value after a gap, probably a stale notification: " + mgdl);
+                return false;
+            }
             val period = oneMinute ? ONE_MINUTE_DEDUPE_MS : recentbt ? grace : dedupe;
             val existing = BgReading.getForPreciseTimestamp(timestamp, period, false);
             if (existing == null) {
@@ -430,6 +437,7 @@ public class UiBasedCollector extends NotificationListenerService {
                             : BgReading.bgReadingInsertFromG5(mgdl, timestamp);
                     if (bgr != null) {
                         lastInsertOneMinute = oneMinute;
+                        PersistentStore.setLong(UI_BASED_STORE_LAST_TIME, timestamp);
                         bgr.find_slope();
                         bgr.noRawWillBeAvailable();
                         bgr.injectDisplayGlucose(BestGlucose.getDisplayGlucose());
@@ -459,6 +467,12 @@ public class UiBasedCollector extends NotificationListenerService {
 
     private boolean shouldAllowTimeOffsetChange(final int mgdl) {
         return isDifferentToLast(mgdl); // TODO do we need to rate limit this or not?
+    }
+
+    // note this method only checks existing stored data
+    private boolean isUnchangedAfterGap(final long timestamp, final int mgdl) {
+        val lastTime = PersistentStore.getLong(UI_BASED_STORE_LAST_TIME);
+        return lastTime > 0 && timestamp - lastTime > ONE_MINUTE_STALE_AFTER_GAP_MS && !isDifferentToLast(mgdl);
     }
 
     // note this method only checks existing stored data
